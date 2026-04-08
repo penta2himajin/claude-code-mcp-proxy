@@ -35,6 +35,47 @@ jobs:
           sudo apt-get update && sudo apt-get install -y tmux
           bun x vitest run test/integration.test.ts
 
+  e2e-claude:
+    name: E2E Claude Code Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Verify Claude Code installed
+        run: claude --version
+
+      - name: Set up Claude credentials
+        env:
+          CLAUDE_CREDENTIALS: ${{ secrets.CLAUDE_CREDENTIALS }}
+        run: |
+          mkdir -p ~/.claude
+          echo "$CLAUDE_CREDENTIALS" > ~/.claude/.credentials.json
+          chmod 600 ~/.claude/.credentials.json
+
+      - name: Install test dependencies
+        working-directory: fly
+        run: bun install
+
+      - name: Run E2E tests
+        working-directory: fly
+        env:
+          CLAUDE_CREDENTIALS: ${{ secrets.CLAUDE_CREDENTIALS }}
+        run: bun x vitest run test/e2e.test.ts
+
   type-check-worker:
     name: Worker Type Check
     runs-on: ubuntu-latest
