@@ -12,10 +12,15 @@ export interface StartClaudeOptions {
 export class TmuxManager {
   /** Start Claude Code in a tmux session */
   async startClaude({ prompt, workdir = "/workspace" }: StartClaudeOptions = {}) {
-    // Kill existing session if any
+    // If session already exists (e.g. started by entrypoint), reuse it
     try {
-      execSync(`tmux kill-session -t ${SESSION} 2>/dev/null`);
-    } catch {}
+      execSync(`tmux has-session -t ${SESSION} 2>/dev/null`);
+      // Session exists — just run setup handler and return
+      const setupResult = await this.handleSetup();
+      return { status: "started" as const, session: SESSION, ...setupResult };
+    } catch {
+      // No session — create one
+    }
 
     // Start new tmux session with large window
     execSync(`tmux new-session -d -s ${SESSION} -x 220 -y 50`);

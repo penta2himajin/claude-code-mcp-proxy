@@ -24,4 +24,8 @@ fi
 # Lock config dir after setup (defense-in-depth with managed-settings deny rules)
 chmod -R a-w /workspace/.claude-config/ 2>/dev/null || true
 
+# Auto-start Claude Code in tmux (MCP startClaude will reuse if already running)
+tmux new-session -d -s claude -x 220 -y 50
+tmux send-keys -t claude "cd /workspace && claude --dangerously-skip-permissions --rc" C-m
+
 exec tsx src/server.ts
