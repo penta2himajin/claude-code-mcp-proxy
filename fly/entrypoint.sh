@@ -21,4 +21,7 @@ if [ ! -L "$HOME/.claude.json" ]; then
   ln -sf /workspace/.claude-config/.claude.json "$HOME/.claude.json"
 fi
 
+# Lock config dir after setup (defense-in-depth with managed-settings deny rules)
+chmod -R a-w /workspace/.claude-config/ 2>/dev/null || true
+
 exec tsx src/server.ts
