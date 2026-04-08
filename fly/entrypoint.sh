@@ -8,6 +8,12 @@ fi
 mkdir -p /workspace/.claude-config
 ln -sfn /workspace/.claude-config "$HOME/.claude"
 
+# Restore .claude.json from backup if lost (atomic write breaks symlink)
+if [ ! -f /workspace/.claude-config/.claude.json ]; then
+  LATEST=$(ls -t /workspace/.claude-config/backups/.claude.json.backup.* 2>/dev/null | head -1)
+  [ -n "$LATEST" ] && cp "$LATEST" /workspace/.claude-config/.claude.json
+fi
+
 # ~/.claude.json is stored outside ~/.claude/ — symlink it into the volume too
 if [ ! -L "$HOME/.claude.json" ]; then
   # If a real file exists, move it into the volume first
