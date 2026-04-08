@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test-fly:
+    name: Fly Server Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: fly
+        run: bun install
+
+      - name: Type check
+        working-directory: fly
+        run: bun x tsc --noEmit
+
+      - name: Unit tests
+        working-directory: fly
+        run: bun x vitest run test/tmux-manager.test.ts test/server.test.ts
+
+      - name: Integration tests (with tmux)
+        working-directory: fly
+        run: |
+          sudo apt-get update && sudo apt-get install -y tmux
+          bun x vitest run test/integration.test.ts
+
+  type-check-worker:
+    name: Worker Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: worker
+        run: bun install
+
+      - name: Type check
+        working-directory: worker
+        run: bun x tsc --noEmit
