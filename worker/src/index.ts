@@ -160,7 +160,7 @@ export class ClaudeCodeMCP extends McpAgent<Env, Record<string, never>, Props> {
       },
       async ({ text, enter }) => {
         try {
-          const result = await machineRequest(this.env, "/session/send", "POST", { text, enter });
+          const result = (await machineRequest(this.env, "/session/send", "POST", { text, enter })) as Record<string, unknown>;
           await sleep(2000);
           const output = (await machineRequest(this.env, "/session/output?lines=50")) as { output: string };
           return {
