@@ -21,7 +21,9 @@ export class TmuxManager {
     execSync(`tmux new-session -d -s ${SESSION} -x 220 -y 50`);
 
     // Build claude command
-    let cmd = "claude --dangerously-skip-permissions";
+    // --dangerously-skip-permissions: skip all permission prompts
+    // --rc: enable Remote Control (returns RC URL for browser access)
+    let cmd = "claude --dangerously-skip-permissions --rc";
     if (prompt) {
       // Use -p for one-shot prompt, otherwise interactive
       cmd += ` -p ${shellEscape(prompt)}`;

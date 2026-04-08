@@ -52,10 +52,11 @@ describe("TmuxManager", () => {
         "tmux new-session -d -s claude -x 220 -y 50",
       );
 
-      // Should send claude command with --dangerously-skip-permissions
+      // Should send claude command with --dangerously-skip-permissions and --rc
       const sendKeysCmd = execSyncCalls[2];
       expect(sendKeysCmd).toContain("tmux send-keys -t claude");
       expect(sendKeysCmd).toContain("--dangerously-skip-permissions");
+      expect(sendKeysCmd).toContain("--rc");
       expect(sendKeysCmd).toContain("cd /workspace");
       expect(sendKeysCmd).toContain("C-m");
     });

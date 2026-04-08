@@ -54,7 +54,7 @@ describe.skipIf(SKIP)("E2E: Claude Code with --dangerously-skip-permissions", ()
     } catch {}
   });
 
-  it("should start claude with --dangerously-skip-permissions without hanging on permission prompts", async () => {
+  it("should start claude with --dangerously-skip-permissions --rc without hanging", async () => {
     const tmux = new TmuxManager();
 
     // Start Claude Code - using /tmp as workdir since /workspace may not exist in CI
@@ -72,18 +72,22 @@ describe.skipIf(SKIP)("E2E: Claude Code with --dangerously-skip-permissions", ()
     expect(output).not.toContain("Yes, and don't ask again");
     expect(output).not.toContain("Would you like to trust");
 
-    // Should show either:
-    // - Claude's ready prompt (│ >)
-    // - Or a working/processing indicator
-    // - Or an error about API/auth (still means --dangerously-skip-permissions worked)
-    // The key thing is it didn't hang on a permissions prompt
-    console.log("=== Claude output after start ===");
+    console.log("=== Claude output after start (--dangerously-skip-permissions --rc) ===");
     console.log(output);
     console.log("=== End output ===");
 
-    // Verify the session is still running (didn't crash immediately)
-    const status = await tmux.getStatus();
-    expect(status.session).toBe("running");
+    // Check if --rc and --dangerously-skip-permissions can coexist:
+    // - If RC works: output may contain an RC URL (https://...)
+    // - If they conflict: output may contain an error message about incompatibility
+    // - Either way, it shouldn't hang on permission prompts
+    const hasRcUrl = /https?:\/\//.test(output);
+    const hasError = /error|cannot|incompatible|not supported/i.test(output);
+    const isRunning = (await tmux.getStatus()).session === "running";
+
+    console.log(`RC URL found: ${hasRcUrl}, Error detected: ${hasError}, Session running: ${isRunning}`);
+
+    // The session should at least be running (not crashed)
+    expect(isRunning).toBe(true);
   }, 30_000);
 
   it("should accept a simple prompt via -p flag and produce output", async () => {
