@@ -146,6 +146,51 @@ export class TmuxManager {
       return { session: "stopped" as const, lastLines: [] as string[] };
     }
   }
+
+  /**
+   * Check if the Claude Code session is actively doing work.
+   * Compares current output with previous snapshot to detect changes.
+   * Also checks for known activity indicators (spinners, progress).
+   */
+  private lastOutputHash = "";
+  private idleSince = 0;
+
+  async isActive(): Promise<{ active: boolean; idleSeconds: number }> {
+    try {
+      execSync(`tmux has-session -t ${SESSION} 2>/dev/null`);
+    } catch {
+      return { active: false, idleSeconds: 0 };
+    }
+
+    const output = await this.capturePane(30);
+    const trimmed = output.trim();
+
+    // Compute simple hash of output to detect changes
+    const hash = simpleHash(trimmed);
+
+    if (hash !== this.lastOutputHash) {
+      // Output changed — session is active
+      this.lastOutputHash = hash;
+      this.idleSince = Date.now();
+      return { active: true, idleSeconds: 0 };
+    }
+
+    // Output unchanged — check how long it's been idle
+    const idleSeconds = this.idleSince > 0
+      ? Math.floor((Date.now() - this.idleSince) / 1000)
+      : 0;
+
+    // Consider active if output contains known busy indicators
+    const busyPatterns = ["Clauding…", "Working…", "Thinking…", "Running", "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    const isBusy = busyPatterns.some((p) => trimmed.includes(p));
+
+    if (isBusy) {
+      this.idleSince = Date.now();
+      return { active: true, idleSeconds: 0 };
+    }
+
+    return { active: false, idleSeconds };
+  }
 }
 
 /** Shell-escape a string for safe use in shell commands */
@@ -155,4 +200,13 @@ function shellEscape(s: string): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Simple string hash for change detection (not cryptographic) */
+function simpleHash(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  }
+  return h.toString(36);
 }

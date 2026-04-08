@@ -338,4 +338,52 @@ describe("TmuxManager", () => {
       expect(status).toEqual({ session: "stopped", lastLines: [] });
     });
   });
+
+  describe("isActive", () => {
+    it("should return active:true when output changes between calls", async () => {
+      const tmux = new TmuxManager();
+
+      // First call — establishes baseline
+      const first = await tmux.isActive();
+      expect(first.active).toBe(true);
+      expect(first.idleSeconds).toBe(0);
+    });
+
+    it("should return active:false when output stays the same", async () => {
+      const tmux = new TmuxManager();
+
+      // First call sets baseline
+      await tmux.isActive();
+      // Second call — same output
+      const second = await tmux.isActive();
+      expect(second.active).toBe(false);
+    });
+
+    it("should return active:true when output contains busy indicators", async () => {
+      const { execFile: mockExecFile } = await import("node:child_process");
+      vi.mocked(mockExecFile).mockImplementation(
+        ((_cmd: string, _args: string[], cb: any) => {
+          cb(null, { stdout: "Processing... Clauding…\n" });
+        }) as any,
+      );
+
+      const tmux = new TmuxManager();
+      // First call sets baseline
+      await tmux.isActive();
+      // Second call — same output but contains busy indicator
+      const result = await tmux.isActive();
+      expect(result.active).toBe(true);
+    });
+
+    it("should return active:false when session does not exist", async () => {
+      const { execSync: mockExecSync } = await import("node:child_process");
+      vi.mocked(mockExecSync).mockImplementationOnce(() => {
+        throw new Error("no session");
+      });
+
+      const tmux = new TmuxManager();
+      const result = await tmux.isActive();
+      expect(result.active).toBe(false);
+    });
+  });
 });

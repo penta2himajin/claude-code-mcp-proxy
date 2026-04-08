@@ -73,6 +73,11 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// ─── Keepalive Constants ───
+
+const KEEPALIVE_INTERVAL_MS = 30_000; // Poll every 30 seconds
+const IDLE_THRESHOLD_SECONDS = 300; // Stop keepalive after 5 minutes idle
+
 // ─── MCP Server ───
 
 export class ClaudeCodeMCP extends McpAgent<Env, Record<string, never>, Props> {
@@ -80,6 +85,47 @@ export class ClaudeCodeMCP extends McpAgent<Env, Record<string, never>, Props> {
     name: "Claude Code Remote",
     version: "1.0.0",
   });
+
+  /** Start the keepalive alarm loop */
+  private async startKeepalive() {
+    await this.ctx.storage.put("keepalive", true);
+    await this.ctx.storage.setAlarm(Date.now() + KEEPALIVE_INTERVAL_MS);
+  }
+
+  /** Stop the keepalive alarm loop */
+  private async stopKeepalive() {
+    await this.ctx.storage.put("keepalive", false);
+    await this.ctx.storage.deleteAlarm();
+  }
+
+  /** Durable Object alarm handler — polls fly machine activity */
+  async alarm() {
+    const keepalive = await this.ctx.storage.get<boolean>("keepalive");
+    if (!keepalive) return;
+
+    try {
+      const res = await fetch(`https://${this.env.FLY_APP_NAME}.fly.dev/keepalive`, {
+        headers: { Authorization: `Bearer ${this.env.MACHINE_API_KEY}` },
+      });
+
+      if (res.ok) {
+        const data = (await res.json()) as { active: boolean; idleSeconds: number };
+
+        if (!data.active && data.idleSeconds > IDLE_THRESHOLD_SECONDS) {
+          // Session idle too long — stop keepalive, let auto-stop handle it
+          await this.stopKeepalive();
+          return;
+        }
+      }
+    } catch {
+      // Machine unreachable — likely already stopped
+      await this.stopKeepalive();
+      return;
+    }
+
+    // Schedule next poll
+    await this.ctx.storage.setAlarm(Date.now() + KEEPALIVE_INTERVAL_MS);
+  }
 
   async init() {
     const allowedUsers = (this.env.ALLOWED_USERS || "")
@@ -118,6 +164,9 @@ export class ClaudeCodeMCP extends McpAgent<Env, Record<string, never>, Props> {
 
           const result = await machineRequest(this.env, "/session/start", "POST", { prompt, workdir });
 
+          // Start keepalive polling to prevent auto-stop while active
+          await this.startKeepalive();
+
           return {
             content: [
               {
@@ -138,6 +187,9 @@ export class ClaudeCodeMCP extends McpAgent<Env, Record<string, never>, Props> {
 
     this.server.tool("stop_machine", "Stop the Claude Code session and fly.io machine.", {}, async () => {
       try {
+        // Stop keepalive first
+        await this.stopKeepalive();
+
         const machineId = await getFirstMachineId(this.env);
         try {
           await machineRequest(this.env, "/session/stop", "POST");

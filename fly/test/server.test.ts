@@ -13,6 +13,7 @@ const mockTmux = {
   sendKeys: vi.fn().mockResolvedValue({ status: "sent" }),
   capturePane: vi.fn().mockResolvedValue("line1\nline2\nline3\n"),
   getStatus: vi.fn().mockResolvedValue({ session: "running", lastLines: ["line3"] }),
+  isActive: vi.fn().mockResolvedValue({ active: true, idleSeconds: 0 }),
 };
 
 // Mock the module imports
@@ -112,6 +113,10 @@ function createTestServer(): Server {
         const status = await tmux.getStatus();
         return json(res, { ok: true, ...status });
       }
+      if (req.method === "GET" && path === "/keepalive") {
+        const activity = await tmux.isActive();
+        return json(res, activity);
+      }
       if (req.method === "POST" && path === "/session/start") {
         const body = await parseBody(req);
         const result = await tmux.startClaude({ prompt: body.prompt, workdir: body.workdir });
@@ -165,6 +170,7 @@ beforeEach(() => {
   mockTmux.sendKeys.mockResolvedValue({ status: "sent" });
   mockTmux.capturePane.mockResolvedValue("line1\nline2\nline3\n");
   mockTmux.getStatus.mockResolvedValue({ session: "running", lastLines: ["line3"] });
+  mockTmux.isActive.mockResolvedValue({ active: true, idleSeconds: 0 });
 });
 
 describe("HTTP Server", () => {
@@ -193,6 +199,23 @@ describe("HTTP Server", () => {
       expect(res.data.ok).toBe(true);
       expect(res.data.session).toBe("running");
       expect(res.data.lastLines).toEqual(["line3"]);
+    });
+  });
+
+  describe("GET /keepalive", () => {
+    it("should return active status when session is active", async () => {
+      const res = await request(port, "GET", "/keepalive");
+      expect(res.status).toBe(200);
+      expect(res.data.active).toBe(true);
+      expect(res.data.idleSeconds).toBe(0);
+    });
+
+    it("should return inactive status when session is idle", async () => {
+      mockTmux.isActive.mockResolvedValueOnce({ active: false, idleSeconds: 120 });
+      const res = await request(port, "GET", "/keepalive");
+      expect(res.status).toBe(200);
+      expect(res.data.active).toBe(false);
+      expect(res.data.idleSeconds).toBe(120);
     });
   });
 

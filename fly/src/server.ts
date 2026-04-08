@@ -77,6 +77,12 @@ const server = createServer(async (req, res) => {
       return json(res, { ok: true, ...status });
     }
 
+    // GET /keepalive - activity check for Worker keepalive polling
+    if (req.method === "GET" && path === "/keepalive") {
+      const activity = await tmux.isActive();
+      return json(res, activity);
+    }
+
     // POST /session/start - start Claude in tmux
     if (req.method === "POST" && path === "/session/start") {
       const body = await parseBody(req);
