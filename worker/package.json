@@ -1,0 +1,23 @@
+{
+  "name": "claude-code-mcp-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "cf-typegen": "wrangler types",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "^0.4.0",
+    "agents": "^0.9.0",
+    "hono": "^4.12.9",
+    "octokit": "^5.0.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4",
+    "typescript": "^6",
+    "wrangler": "^4"
+  }
+}
