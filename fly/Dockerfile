@@ -23,7 +23,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 RUN useradd -m -s /bin/bash claude && \
     mkdir -p /workspace /app && \
     chown -R claude:claude /workspace /app && \
-    echo "claude ALL=(ALL) NOPASSWD: /bin/chown" >> /etc/sudoers.d/claude
+    echo "claude ALL=(ALL) NOPASSWD: /bin/chown, /usr/bin/chown" >> /etc/sudoers.d/claude
 
 # Install mise (language toolchains are configured at runtime via MISE_TOOLS env var)
 USER claude

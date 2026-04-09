@@ -12,15 +12,22 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-// Restore Claude subscription credentials from env var if present
+// Restore Claude subscription credentials from env var if present.
+// This is a fallback — entrypoint.sh handles symlinks and chown first,
+// but credentials may be missing (deleted, expired, first run).
 const CLAUDE_CREDENTIALS = process.env.CLAUDE_CREDENTIALS;
 if (CLAUDE_CREDENTIALS) {
   const claudeDir = join(homedir(), ".claude");
   const credPath = join(claudeDir, ".credentials.json");
   if (!existsSync(credPath)) {
-    mkdirSync(claudeDir, { recursive: true });
-    writeFileSync(credPath, CLAUDE_CREDENTIALS, { mode: 0o600 });
-    console.log("Restored Claude credentials from CLAUDE_CREDENTIALS env var");
+    try {
+      mkdirSync(claudeDir, { recursive: true });
+      writeFileSync(credPath, CLAUDE_CREDENTIALS, { mode: 0o600 });
+      console.log("Restored Claude credentials from CLAUDE_CREDENTIALS env var");
+    } catch (e: unknown) {
+      // Non-fatal: Claude Code will enter login flow if credentials are missing
+      console.warn("Could not restore credentials:", e instanceof Error ? e.message : e);
+    }
   }
 }
 
