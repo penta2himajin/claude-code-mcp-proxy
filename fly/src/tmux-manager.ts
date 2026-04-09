@@ -72,6 +72,12 @@ export class TmuxManager {
         continue;
       }
 
+      // Settings error: continue without broken settings (safety net)
+      if (output.includes("Continue without these settings")) {
+        this.sendKeysSync("2");
+        continue;
+      }
+
       // "Press Enter to continue" (security notes, etc.)
       if (output.includes("Press Enter to continue")) {
         execSync(`tmux send-keys -t ${SESSION} C-m`);
