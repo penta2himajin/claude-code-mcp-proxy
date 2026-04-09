@@ -31,11 +31,12 @@ if [ -n "$GH_TOKEN" ] && ! gh auth status >/dev/null 2>&1; then
   echo "$GH_TOKEN" | gh auth login --with-token
 fi
 
-# Lock config dir after setup (defense-in-depth with managed-settings deny rules).
-# Lock everything except gh/ first — method B (browser OAuth) needs gh/ writable for first login.
-find /workspace/.claude-config -not -path '*/gh/*' -not -path '*/gh' -exec chmod a-w {} + 2>/dev/null || true
-# Lock gh/ only if already authenticated (hosts.yml exists)
-[ -f /workspace/.claude-config/gh/hosts.yml ] && chmod -R a-w /workspace/.claude-config/gh 2>/dev/null || true
+# Lock only auth-critical files (defense-in-depth with managed-settings deny rules).
+# DO NOT lock the entire config dir — Claude Code needs to write to ~/.claude/ at startup
+# (sessions, cache, history, etc.). Locking everything causes Claude Code to freeze.
+chmod a-w /workspace/.claude-config/.credentials.json 2>/dev/null || true
+chmod a-w /workspace/.claude-config/.claude.json 2>/dev/null || true
+[ -f /workspace/.claude-config/gh/hosts.yml ] && chmod a-w /workspace/.claude-config/gh/hosts.yml 2>/dev/null || true
 
 # Auto-start Claude Code in tmux (MCP startClaude will reuse if already running)
 tmux new-session -d -s claude -x 220 -y 50
