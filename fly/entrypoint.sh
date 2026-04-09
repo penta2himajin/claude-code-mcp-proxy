@@ -1,4 +1,8 @@
 #!/bin/bash
+# Ensure mise-managed tools (node, claude, tsx, etc.) are on PATH.
+# entrypoint.sh runs as a non-interactive script, so .bashrc is NOT sourced.
+export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:$PATH"
+
 # Fix volume ownership (fly.io mounts as root)
 if [ -d /workspace ] && [ "$(stat -c '%U' /workspace)" = "root" ]; then
   sudo chown -R claude:claude /workspace

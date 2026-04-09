@@ -67,4 +67,23 @@ describe("entrypoint.sh safety checks", () => {
   it("should use LF line endings (not CRLF)", () => {
     expect(content).not.toContain("\r\n");
   });
+
+  it("should set mise shims PATH early (entrypoint runs non-interactively, .bashrc is not sourced)", () => {
+    // PATH must be exported before any command that depends on mise-managed tools
+    // (claude, tsx, node, etc.). Without this, entrypoint.sh fails with "command not found".
+    const lines = content.split("\n");
+    const pathLine = lines.findIndex((l) =>
+      l.includes("mise/shims") && l.includes("export PATH"),
+    );
+    // Find first non-PATH tool usage (skip the PATH export line itself)
+    const firstToolUse = lines.findIndex((l, i) => {
+      if (i <= pathLine) return false;
+      const trimmed = l.trim();
+      if (trimmed.startsWith("#")) return false;
+      return /\b(claude|tsx|node|bun|mise)\b/.test(trimmed);
+    });
+
+    expect(pathLine, "mise shims PATH export not found in entrypoint.sh").toBeGreaterThanOrEqual(0);
+    expect(firstToolUse, "no tool usage found after PATH export").toBeGreaterThan(pathLine);
+  });
 });
