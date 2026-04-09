@@ -46,13 +46,17 @@ fi
 # Protection is handled by managed-settings.json deny rules instead.
 [ -f /workspace/.claude-config/gh/hosts.yml ] && chmod a-w /workspace/.claude-config/gh/hosts.yml 2>/dev/null || true
 
-# Remove expired/invalid credentials to prevent Claude Code from hanging.
-# Claude Code hangs indefinitely when it encounters stale OAuth tokens.
+# Remove invalid credentials to prevent Claude Code from hanging.
+# Check 1: expiresAt field (catches obviously expired tokens)
+# Check 2: claude auth status (catches server-side revocation, missing expiresAt, etc.)
 if [ -f /workspace/.claude-config/.credentials.json ]; then
   EXPIRES_AT=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('/workspace/.claude-config/.credentials.json','utf8'));console.log(c.claudeAiOauth?.expiresAt||0)}catch{console.log(0)}" 2>/dev/null)
   NOW_MS=$(date +%s%3N)
   if [ "$EXPIRES_AT" != "0" ] && [ "$NOW_MS" -gt "$EXPIRES_AT" ]; then
     echo "OAuth token expired (expiresAt=$EXPIRES_AT, now=$NOW_MS). Removing stale credentials."
+    rm -f /workspace/.claude-config/.credentials.json
+  elif ! claude auth status >/dev/null 2>&1; then
+    echo "Claude auth check failed (token revoked or invalid). Removing stale credentials."
     rm -f /workspace/.claude-config/.credentials.json
   fi
 fi
