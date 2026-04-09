@@ -3,8 +3,8 @@
 # entrypoint.sh runs as a non-interactive script, so .bashrc is NOT sourced.
 export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:$PATH"
 
-# Fix volume ownership (fly.io mounts as root)
-if [ -d /workspace ] && [ "$(stat -c '%U' /workspace)" = "root" ]; then
+# Fix volume ownership (fly.io mounts with previous UID or as root)
+if [ -d /workspace ] && [ "$(stat -c '%u' /workspace)" != "$(id -u)" ]; then
   sudo chown -R claude:claude /workspace
 fi
 
