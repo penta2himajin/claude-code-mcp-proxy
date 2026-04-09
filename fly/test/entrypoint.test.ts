@@ -3,16 +3,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Static analysis of entrypoint.sh to prevent regressions where
- * overly broad chmod commands lock files Claude Code needs to write.
+ * Static analysis of entrypoint.sh to prevent regressions.
  *
- * Claude Code requires write access to ~/.claude/ for:
- * - sessions/, cache/, plans/, shell-snapshots/ (runtime state)
- * - history.jsonl, settings.json (user preferences)
- * - mcp-needs-auth-cache.json (MCP state)
+ * Claude Code requires write access to:
+ * - ~/.claude/.credentials.json (OAuth token refresh)
+ * - ~/.claude/.claude.json (settings, atomic write)
+ * - ~/.claude/sessions/, cache/, plans/, etc. (runtime state)
  *
- * Only auth-critical files should be locked:
- * - .credentials.json, .claude.json, gh/hosts.yml
+ * Locking ANY of these causes Claude Code to hang silently on startup.
+ * Protection against Claude Code's own tools is via managed-settings.json deny rules.
  */
 
 const entrypointPath = join(__dirname, "..", "entrypoint.sh");
@@ -20,62 +19,76 @@ const entrypointPath = join(__dirname, "..", "entrypoint.sh");
 describe("entrypoint.sh safety checks", () => {
   const content = readFileSync(entrypointPath, "utf-8");
 
-  it("should not use recursive chmod on the entire config directory", () => {
-    // Match patterns like: chmod -R a-w /workspace/.claude-config
-    // or: find /workspace/.claude-config ... -exec chmod a-w {} +
+  // ── Permission lockout prevention (PR #6, #10) ──
+
+  it("should not chmod a-w on .credentials.json (breaks OAuth token refresh)", () => {
+    const lines = content.split("\n").filter((l) => {
+      const t = l.trim();
+      return !t.startsWith("#") && t.includes("chmod") && t.includes("a-w") && t.includes(".credentials.json");
+    });
+    expect(
+      lines,
+      "chmod a-w on .credentials.json found. Claude Code needs write access to refresh OAuth tokens.",
+    ).toHaveLength(0);
+  });
+
+  it("should not chmod a-w on .claude.json (breaks settings updates)", () => {
+    const lines = content.split("\n").filter((l) => {
+      const t = l.trim();
+      return !t.startsWith("#") && t.includes("chmod") && t.includes("a-w") && t.includes(".claude.json");
+    });
+    expect(
+      lines,
+      "chmod a-w on .claude.json found. Claude Code uses atomic write on this file.",
+    ).toHaveLength(0);
+  });
+
+  it("should not use recursive chmod on the config directory (PR #6)", () => {
     const dangerousPatterns = [
       /chmod\s+-R\s+a-w\s+\/workspace\/\.claude-config[^/]/,
       /find\s+\/workspace\/\.claude-config\s.*-exec\s+chmod\s+a-w/,
     ];
-
     for (const pattern of dangerousPatterns) {
       const match = content.match(pattern);
-      expect(match, `Dangerous pattern found: ${match?.[0]}\nThis will lock files Claude Code needs to write at startup, causing it to freeze.`).toBeNull();
+      expect(match, `Dangerous pattern: ${match?.[0]}`).toBeNull();
     }
   });
 
-  it("should only lock specific auth-critical files", () => {
-    // Extract all chmod lines (excluding comments)
-    const chmodLines = content
-      .split("\n")
-      .filter((line) => {
-        const trimmed = line.trim();
-        return trimmed.includes("chmod") && !trimmed.startsWith("#");
-      });
+  // ── Token expiry handling (PR #10) ──
 
-    // Allowed lock targets (specific files, not directories)
-    const allowedTargets = [
-      ".credentials.json",
-      ".claude.json",
-      "hosts.yml",
-    ];
-
-    for (const line of chmodLines) {
-      // Skip chown lines and chmod +x (making executable)
-      if (line.includes("chown") || line.includes("+x")) continue;
-      // Skip lines that remove write (the ones we care about)
-      if (!line.includes("a-w")) continue;
-
-      const targetsOneOfAllowed = allowedTargets.some((t) => line.includes(t));
-      expect(
-        targetsOneOfAllowed,
-        `chmod a-w targets unknown file: "${line.trim()}"\nOnly auth files should be locked. Claude Code needs write access to config dir.`,
-      ).toBe(true);
-    }
+  it("should check OAuth token expiry before starting Claude Code", () => {
+    expect(content).toContain("expiresAt");
+    expect(content).toContain("rm -f");
+    expect(content).toContain(".credentials.json");
   });
+
+  it("should remove stale credentials before tmux session starts", () => {
+    const lines = content.split("\n");
+    const expiryCheckLine = lines.findIndex((l) => l.includes("expiresAt"));
+    const tmuxStartLine = lines.findIndex((l) =>
+      !l.trim().startsWith("#") && l.includes("tmux new-session"),
+    );
+    expect(expiryCheckLine, "Token expiry check not found").toBeGreaterThanOrEqual(0);
+    expect(tmuxStartLine, "tmux session start not found").toBeGreaterThanOrEqual(0);
+    expect(
+      expiryCheckLine,
+      "Token expiry check must happen BEFORE tmux session starts Claude Code",
+    ).toBeLessThan(tmuxStartLine);
+  });
+
+  // ── CRLF prevention (PR #3) ──
 
   it("should use LF line endings (not CRLF)", () => {
     expect(content).not.toContain("\r\n");
   });
 
-  it("should set mise shims PATH early (entrypoint runs non-interactively, .bashrc is not sourced)", () => {
-    // PATH must be exported before any command that depends on mise-managed tools
-    // (claude, tsx, node, etc.). Without this, entrypoint.sh fails with "command not found".
+  // ── PATH setup (PR #8, #9) ──
+
+  it("should set mise shims PATH early (entrypoint runs non-interactively)", () => {
     const lines = content.split("\n");
     const pathLine = lines.findIndex((l) =>
       l.includes("mise/shims") && l.includes("export PATH"),
     );
-    // Find first non-PATH tool usage (skip the PATH export line itself)
     const firstToolUse = lines.findIndex((l, i) => {
       if (i <= pathLine) return false;
       const trimmed = l.trim();
@@ -83,7 +96,43 @@ describe("entrypoint.sh safety checks", () => {
       return /\b(claude|tsx|node|bun|mise)\b/.test(trimmed);
     });
 
-    expect(pathLine, "mise shims PATH export not found in entrypoint.sh").toBeGreaterThanOrEqual(0);
+    expect(pathLine, "mise shims PATH export not found").toBeGreaterThanOrEqual(0);
     expect(firstToolUse, "no tool usage found after PATH export").toBeGreaterThan(pathLine);
+  });
+
+  // ── Config persistence ──
+
+  it("should symlink ~/.claude to persistent volume", () => {
+    expect(content).toContain("ln -sfn /workspace/.claude-config");
+    expect(content).toMatch(/\$HOME\/\.claude/);
+  });
+
+  it("should restore .claude.json from backup when missing", () => {
+    expect(content).toContain("backups/.claude.json.backup");
+    expect(content).toMatch(/if \[.*!.*-f.*\.claude\.json/);
+  });
+
+  it("should symlink ~/.claude.json to volume (atomic write breaks direct symlink)", () => {
+    expect(content).toContain("ln -sf /workspace/.claude-config/.claude.json");
+  });
+
+  // ── Claude Code auto-start (PR #7) ──
+
+  it("should auto-start Claude Code in tmux with --dangerously-skip-permissions --rc", () => {
+    const tmuxLines = content.split("\n").filter((l) => {
+      const t = l.trim();
+      return !t.startsWith("#") && t.includes("tmux send-keys") && t.includes("claude");
+    });
+    expect(tmuxLines.length).toBeGreaterThanOrEqual(1);
+
+    const claudeCmd = tmuxLines[0];
+    expect(claudeCmd).toContain("--dangerously-skip-permissions");
+    expect(claudeCmd).toContain("--rc");
+  });
+
+  it("should start HTTP server with exec (replaces shell process)", () => {
+    const lines = content.split("\n");
+    const execLine = lines.find((l) => l.trim().startsWith("exec ") && l.includes("tsx"));
+    expect(execLine, "exec tsx not found — server must replace shell process").toBeDefined();
   });
 });

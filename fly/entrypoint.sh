@@ -35,12 +35,22 @@ if [ -n "$GH_TOKEN" ] && ! gh auth status >/dev/null 2>&1; then
   echo "$GH_TOKEN" | gh auth login --with-token
 fi
 
-# Lock only auth-critical files (defense-in-depth with managed-settings deny rules).
-# DO NOT lock the entire config dir — Claude Code needs to write to ~/.claude/ at startup
-# (sessions, cache, history, etc.). Locking everything causes Claude Code to freeze.
-chmod a-w /workspace/.claude-config/.credentials.json 2>/dev/null || true
-chmod a-w /workspace/.claude-config/.claude.json 2>/dev/null || true
+# NOTE: Do NOT chmod a-w on .credentials.json or .claude.json.
+# Claude Code needs write access to refresh OAuth tokens and update settings.
+# Locking these files causes Claude Code to hang silently on startup.
+# Protection is handled by managed-settings.json deny rules instead.
 [ -f /workspace/.claude-config/gh/hosts.yml ] && chmod a-w /workspace/.claude-config/gh/hosts.yml 2>/dev/null || true
+
+# Remove expired/invalid credentials to prevent Claude Code from hanging.
+# Claude Code hangs indefinitely when it encounters stale OAuth tokens.
+if [ -f /workspace/.claude-config/.credentials.json ]; then
+  EXPIRES_AT=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('/workspace/.claude-config/.credentials.json','utf8'));console.log(c.claudeAiOauth?.expiresAt||0)}catch{console.log(0)}" 2>/dev/null)
+  NOW_MS=$(date +%s%3N)
+  if [ "$EXPIRES_AT" != "0" ] && [ "$NOW_MS" -gt "$EXPIRES_AT" ]; then
+    echo "OAuth token expired (expiresAt=$EXPIRES_AT, now=$NOW_MS). Removing stale credentials."
+    rm -f /workspace/.claude-config/.credentials.json
+  fi
+fi
 
 # Persist mise data in volume (toolchain installs, shims, cache survive restarts)
 MISE_DATA="$HOME/.local/share/mise"
