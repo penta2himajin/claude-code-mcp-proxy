@@ -3,8 +3,13 @@
 # entrypoint.sh runs as a non-interactive script, so .bashrc is NOT sourced.
 export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:$PATH"
 
-# Fix volume ownership (fly.io mounts with previous UID or as root)
-if [ -d /workspace ] && [ "$(stat -c '%u' /workspace)" != "$(id -u)" ]; then
+# Fix volume ownership. fly.io sets top-level /workspace uid on mount,
+# but subdirectories retain the UID from the previous container build.
+# Check .claude-config (most critical) — if it exists with wrong UID, fix everything.
+MYUID="$(id -u)"
+if [ -d /workspace/.claude-config ] && [ "$(stat -c '%u' /workspace/.claude-config)" != "$MYUID" ]; then
+  sudo chown -R claude:claude /workspace
+elif [ -d /workspace ] && [ "$(stat -c '%u' /workspace)" != "$MYUID" ]; then
   sudo chown -R claude:claude /workspace
 fi
 
