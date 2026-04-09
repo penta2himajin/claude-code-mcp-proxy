@@ -106,6 +106,14 @@ describe("entrypoint.sh safety checks", () => {
     expect(firstToolUse, "no tool usage found after PATH export").toBeGreaterThan(pathLine);
   });
 
+  it("should include ~/.cargo/bin in PATH (mise rust uses rustup, not shims)", () => {
+    const pathExport = content.split("\n").find((l) =>
+      l.includes("export PATH=") && l.includes("mise/shims"),
+    );
+    expect(pathExport, "PATH export line not found").toBeDefined();
+    expect(pathExport).toContain(".cargo/bin");
+  });
+
   it("should run mise reshim after tool installation (generates shims for non-interactive shells)", () => {
     const lines = content.split("\n");
     const useGlobalLine = lines.findIndex((l) =>

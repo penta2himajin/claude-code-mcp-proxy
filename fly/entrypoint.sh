@@ -1,7 +1,7 @@
 #!/bin/bash
 # Ensure mise-managed tools (node, claude, tsx, etc.) are on PATH.
 # entrypoint.sh runs as a non-interactive script, so .bashrc is NOT sourced.
-export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:$PATH"
+export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:/home/claude/.cargo/bin:$PATH"
 
 # Fix volume ownership. fly.io sets top-level /workspace uid on mount,
 # but subdirectories retain the UID from the previous container build.

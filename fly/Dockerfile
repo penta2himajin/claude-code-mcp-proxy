@@ -28,18 +28,18 @@ RUN useradd -m -s /bin/bash claude && \
 # Install mise (language toolchains are configured at runtime via MISE_TOOLS env var)
 USER claude
 RUN curl https://mise.run | sh
-ENV PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:${PATH}"
+ENV PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:/home/claude/.cargo/bin:${PATH}"
 
 # BASH_ENV is sourced by non-interactive bash (including Claude Code's Bash tool).
 # Separate file avoids Debian's .bashrc guard ([ -z "$PS1" ] && return).
-RUN echo 'export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:$PATH"' > /home/claude/.mise-env.sh
+RUN echo 'export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:/home/claude/.cargo/bin:$PATH"' > /home/claude/.mise-env.sh
 ENV BASH_ENV="/home/claude/.mise-env.sh"
 
 # Install Node.js via mise (required for claude-code and tsx at build time)
 RUN mise use --global node@22
 
 # Activate mise in interactive shells (for Claude Code sessions)
-RUN echo 'export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:$PATH"' >> /home/claude/.bashrc && \
+RUN echo 'export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:/home/claude/.cargo/bin:$PATH"' >> /home/claude/.bashrc && \
     echo 'eval "$(mise activate bash)"' >> /home/claude/.bashrc
 
 # Install Claude Code CLI and tsx (TypeScript runner)
