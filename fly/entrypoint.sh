@@ -21,6 +21,16 @@ if [ ! -L "$HOME/.claude.json" ]; then
   ln -sf /workspace/.claude-config/.claude.json "$HOME/.claude.json"
 fi
 
+# Persist gh CLI config in volume (auth tokens survive restarts)
+mkdir -p /workspace/.claude-config/gh
+mkdir -p "$HOME/.config"
+ln -sfn /workspace/.claude-config/gh "$HOME/.config/gh"
+
+# Auto-login with GH_TOKEN if set and not already authenticated
+if [ -n "$GH_TOKEN" ] && ! gh auth status >/dev/null 2>&1; then
+  echo "$GH_TOKEN" | gh auth login --with-token
+fi
+
 # Lock config dir after setup (defense-in-depth with managed-settings deny rules)
 chmod -R a-w /workspace/.claude-config/ 2>/dev/null || true
 
