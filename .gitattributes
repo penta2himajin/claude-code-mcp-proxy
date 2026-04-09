@@ -1,0 +1,4 @@
+# Force LF for shell scripts (CRLF breaks shebang on Linux)
+*.sh text eol=lf
+entrypoint.sh text eol=lf
+Dockerfile text eol=lf
