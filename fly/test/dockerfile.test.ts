@@ -44,4 +44,18 @@ describe("Dockerfile safety checks", () => {
     expect(content).toContain("BASH_ENV");
     expect(content).toContain(".mise-env.sh");
   });
+
+  it("should include ~/.cargo/bin in all PATH definitions (mise rust uses rustup)", () => {
+    // mise's rust plugin installs via rustup to ~/.cargo/bin, not shims.
+    // All PATH definitions must include it: .mise-env.sh, .bashrc, Docker ENV.
+    const pathLines = content.split("\n").filter((l) =>
+      l.includes("PATH=") && l.includes("mise/shims"),
+    );
+    for (const line of pathLines) {
+      expect(
+        line,
+        `Missing .cargo/bin in PATH line: ${line.trim()}`,
+      ).toContain(".cargo/bin");
+    }
+  });
 });
