@@ -62,6 +62,12 @@ describe("entrypoint.sh safety checks", () => {
     expect(content).toContain(".credentials.json");
   });
 
+  it("should validate credentials with claude auth status (catches server-side revocation)", () => {
+    // expiresAt alone is insufficient — tokens can be revoked server-side
+    // or have no expiresAt set. claude auth status catches all cases.
+    expect(content).toContain("claude auth status");
+  });
+
   it("should remove stale credentials before tmux session starts", () => {
     const lines = content.split("\n");
     const expiryCheckLine = lines.findIndex((l) => l.includes("expiresAt"));
