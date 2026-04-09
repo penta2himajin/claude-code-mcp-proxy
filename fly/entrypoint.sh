@@ -38,6 +38,12 @@ chmod a-w /workspace/.claude-config/.credentials.json 2>/dev/null || true
 chmod a-w /workspace/.claude-config/.claude.json 2>/dev/null || true
 [ -f /workspace/.claude-config/gh/hosts.yml ] && chmod a-w /workspace/.claude-config/gh/hosts.yml 2>/dev/null || true
 
+# Install extra language toolchains if specified (e.g. MISE_EXTRA_TOOLS="python@3.12 go@latest")
+if [ -n "$MISE_EXTRA_TOOLS" ]; then
+  echo "Installing extra tools: $MISE_EXTRA_TOOLS"
+  mise use --global $MISE_EXTRA_TOOLS
+fi
+
 # Auto-start Claude Code in tmux (MCP startClaude will reuse if already running)
 tmux new-session -d -s claude -x 220 -y 50
 tmux send-keys -t claude "cd /workspace && claude --dangerously-skip-permissions --rc" C-m
