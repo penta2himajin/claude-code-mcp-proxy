@@ -51,7 +51,19 @@ beforeEach(async () => {
 
 describe("TmuxManager", () => {
   describe("startClaude", () => {
-    it("should kill existing session, create new one, and send claude command", async () => {
+    // startClaude tests default to "no existing session" (has-session throws)
+    beforeEach(async () => {
+      const cp = await import("node:child_process");
+      vi.mocked(cp.execSync).mockImplementation((cmd: string) => {
+        execSyncCalls.push(cmd);
+        if (typeof cmd === "string" && cmd.includes("has-session")) {
+          throw new Error("session not found");
+        }
+        return Buffer.from("");
+      });
+    });
+
+    it("should check for existing session, create new one if none, and send claude command", async () => {
       const tmux = new TmuxManager();
       const result = await tmux.startClaude();
 
@@ -59,8 +71,8 @@ describe("TmuxManager", () => {
       expect(result.session).toBe("claude");
       expect(result.ready).toBe(true);
 
-      // Should attempt to kill existing session
-      expect(execSyncCalls[0]).toContain("tmux kill-session -t claude");
+      // Should check for existing session (fails → creates new one)
+      expect(execSyncCalls[0]).toContain("tmux has-session -t claude");
 
       // Should create new tmux session
       expect(execSyncCalls[1]).toBe(
@@ -74,6 +86,24 @@ describe("TmuxManager", () => {
       expect(sendKeysCmd).toContain("--rc");
       expect(sendKeysCmd).toContain("cd /workspace");
       expect(sendKeysCmd).toContain("C-m");
+    });
+
+    it("should reuse existing session when one is already running", async () => {
+      const { execSync: mockExecSync } = await import("node:child_process");
+      vi.mocked(mockExecSync).mockImplementation((cmd: string) => {
+        execSyncCalls.push(cmd);
+        // has-session succeeds → session exists
+        return Buffer.from("");
+      });
+
+      const tmux = new TmuxManager();
+      const result = await tmux.startClaude();
+
+      expect(result.status).toBe("started");
+      expect(result.ready).toBe(true);
+      // Should only call has-session, not new-session or send-keys
+      expect(execSyncCalls[0]).toContain("tmux has-session -t claude");
+      expect(execSyncCalls.find((c) => c.includes("new-session"))).toBeUndefined();
     });
 
     it("should include -p flag with prompt when provided", async () => {
@@ -107,6 +137,18 @@ describe("TmuxManager", () => {
   });
 
   describe("handleSetup (via startClaude)", () => {
+    // handleSetup tests also need "no existing session" so startClaude creates one
+    beforeEach(async () => {
+      const cp = await import("node:child_process");
+      vi.mocked(cp.execSync).mockImplementation((cmd: string) => {
+        execSyncCalls.push(cmd);
+        if (typeof cmd === "string" && cmd.includes("has-session")) {
+          throw new Error("session not found");
+        }
+        return Buffer.from("");
+      });
+    });
+
     it("should auto-respond to theme selection prompt", async () => {
       let callCount = 0;
       const { execFile: mockExecFile } = await import("node:child_process");
