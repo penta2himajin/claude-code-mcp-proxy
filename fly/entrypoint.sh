@@ -77,6 +77,10 @@ MISE_TOOLS="${MISE_TOOLS:-node@22 bun@latest rust@latest dotnet@latest}"
 echo "Ensuring tools: $MISE_TOOLS"
 mise use --global $MISE_TOOLS
 
+# Generate shims so non-interactive shells (Claude Code Bash tool) can find binaries.
+# mise activate adds paths dynamically, but shims must be explicitly created.
+mise reshim
+
 # Auto-start Claude Code in tmux (MCP startClaude will reuse if already running)
 tmux new-session -d -s claude -x 220 -y 50
 tmux send-keys -t claude "cd /workspace && claude --dangerously-skip-permissions --rc" C-m
