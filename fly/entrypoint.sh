@@ -39,6 +39,10 @@ ln -sfn /workspace/.claude-config/gh "$HOME/.config/gh"
 mkdir -p /workspace/.cargo
 ln -sfn /workspace/.cargo "$HOME/.cargo"
 
+# Persist Rust toolchains in volume (rustup stores toolchains in ~/.rustup)
+mkdir -p /workspace/.rustup
+ln -sfn /workspace/.rustup "$HOME/.rustup"
+
 # Auto-login with GH_TOKEN if set and not already authenticated
 if [ -n "$GH_TOKEN" ] && ! gh auth status >/dev/null 2>&1; then
   echo "$GH_TOKEN" | gh auth login --with-token
