@@ -11,6 +11,10 @@ RUN apt-get update && apt-get install -y \
 # Install Claude Code CLI and tsx (TypeScript runner)
 RUN npm install -g @anthropic-ai/claude-code tsx
 
+# Deploy managed settings (highest priority, cannot be overridden by user/project)
+RUN mkdir -p /etc/claude-code
+COPY managed-settings.json /etc/claude-code/managed-settings.json
+
 # Create non-root user (claude --dangerously-skip-permissions refuses root)
 RUN useradd -m -s /bin/bash claude && \
     mkdir -p /workspace /app && \

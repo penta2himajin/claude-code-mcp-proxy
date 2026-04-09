@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schemas.anthropic.com/claude-code/settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(rm -r *)",
+      "Bash(rm */workspace/.claude-config*)",
+      "Bash(mv */workspace/.claude-config*)",
+      "Bash(chmod */workspace/.claude-config*)",
+      "Edit(/workspace/.claude-config/**)",
+      "Write(/workspace/.claude-config/**)",
+      "Bash(git push * --force *)",
+      "Bash(git push --force *)",
+      "Bash(git push * -f *)",
+      "Bash(git push -f *)",
+      "Bash(git push * main)",
+      "Bash(git push * master)",
+      "Bash(gh pr merge *)",
+      "Bash(gh repo delete *)",
+      "Bash(chmod 777 *)",
+      "Bash(shutdown *)",
+      "Bash(reboot *)",
+      "Bash(kill -9 1)",
+      "Bash(pkill -9 *)",
+      "Bash(dd *)",
+      "Bash(mkfs *)",
+      "Bash(npm publish *)",
+      "Bash(npx npm-publish *)"
+    ]
+  }
+}
