@@ -25,14 +25,13 @@ RUN useradd -m -s /bin/bash claude && \
     chown -R claude:claude /workspace /app && \
     echo "claude ALL=(ALL) NOPASSWD: /bin/chown" >> /etc/sudoers.d/claude
 
-# Install mise and language toolchains as claude user
+# Install mise (language toolchains are configured at runtime via MISE_TOOLS env var)
 USER claude
 RUN curl https://mise.run | sh
-ENV PATH="/home/claude/.local/bin:${PATH}"
+ENV PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:${PATH}"
 
-COPY --chown=claude:claude .mise.toml /home/claude/.mise.toml
-RUN mise trust /home/claude/.mise.toml && mise install
-ENV PATH="/home/claude/.local/share/mise/shims:${PATH}"
+# Install Node.js via mise (required for claude-code and tsx at build time)
+RUN mise use --global node@22
 
 # Activate mise in interactive shells (for Claude Code sessions)
 RUN echo 'eval "$(mise activate bash)"' >> /home/claude/.bashrc

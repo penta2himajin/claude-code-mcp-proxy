@@ -38,11 +38,21 @@ chmod a-w /workspace/.claude-config/.credentials.json 2>/dev/null || true
 chmod a-w /workspace/.claude-config/.claude.json 2>/dev/null || true
 [ -f /workspace/.claude-config/gh/hosts.yml ] && chmod a-w /workspace/.claude-config/gh/hosts.yml 2>/dev/null || true
 
-# Install extra language toolchains if specified (e.g. MISE_EXTRA_TOOLS="python@3.12 go@latest")
-if [ -n "$MISE_EXTRA_TOOLS" ]; then
-  echo "Installing extra tools: $MISE_EXTRA_TOOLS"
-  mise use --global $MISE_EXTRA_TOOLS
+# Persist mise data in volume (toolchain installs, shims, cache survive restarts)
+MISE_DATA="$HOME/.local/share/mise"
+MISE_CACHE="/workspace/.mise"
+if [ ! -L "$MISE_DATA" ]; then
+  mkdir -p "$MISE_CACHE"
+  # First run: seed volume with build-time node install, then symlink
+  cp -a "$MISE_DATA/"* "$MISE_CACHE/" 2>/dev/null || true
+  rm -rf "$MISE_DATA"
+  ln -sfn "$MISE_CACHE" "$MISE_DATA"
 fi
+
+# Install language toolchains from MISE_TOOLS (set via Fly.io Secrets dashboard)
+MISE_TOOLS="${MISE_TOOLS:-node@22 bun@latest rust@latest dotnet@latest}"
+echo "Ensuring tools: $MISE_TOOLS"
+mise use --global $MISE_TOOLS
 
 # Auto-start Claude Code in tmux (MCP startClaude will reuse if already running)
 tmux new-session -d -s claude -x 220 -y 50

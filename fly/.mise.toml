@@ -1,5 +1,0 @@
-[tools]
-node = "22"
-bun = "latest"
-rust = "latest"
-dotnet = "latest"
