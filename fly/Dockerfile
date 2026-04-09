@@ -30,6 +30,11 @@ USER claude
 RUN curl https://mise.run | sh
 ENV PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:${PATH}"
 
+# BASH_ENV is sourced by non-interactive bash (including Claude Code's Bash tool).
+# Separate file avoids Debian's .bashrc guard ([ -z "$PS1" ] && return).
+RUN echo 'export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:$PATH"' > /home/claude/.mise-env.sh
+ENV BASH_ENV="/home/claude/.mise-env.sh"
+
 # Install Node.js via mise (required for claude-code and tsx at build time)
 RUN mise use --global node@22
 

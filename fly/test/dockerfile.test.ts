@@ -36,4 +36,12 @@ describe("Dockerfile safety checks", () => {
     // entrypoint.sh handles volume setup, credentials, and PATH before starting
     expect(content).toMatch(/CMD\s+\[.*entrypoint\.sh/);
   });
+
+  it("should set BASH_ENV for non-interactive shells (Claude Code Bash tool)", () => {
+    // Claude Code's Bash tool runs /bin/bash -c which is non-interactive.
+    // .bashrc has a guard ([ -z "$PS1" ] && return) that skips PATH setup.
+    // BASH_ENV points to a separate file that's always sourced.
+    expect(content).toContain("BASH_ENV");
+    expect(content).toContain(".mise-env.sh");
+  });
 });
