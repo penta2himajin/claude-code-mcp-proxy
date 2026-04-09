@@ -34,7 +34,8 @@ ENV PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:${PATH}"
 RUN mise use --global node@22
 
 # Activate mise in interactive shells (for Claude Code sessions)
-RUN echo 'eval "$(mise activate bash)"' >> /home/claude/.bashrc
+RUN echo 'export PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:$PATH"' >> /home/claude/.bashrc && \
+    echo 'eval "$(mise activate bash)"' >> /home/claude/.bashrc
 
 # Install Claude Code CLI and tsx (TypeScript runner)
 RUN npm install -g @anthropic-ai/claude-code tsx
