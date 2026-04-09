@@ -81,6 +81,12 @@ MISE_TOOLS="${MISE_TOOLS:-node@22 bun@latest rust@latest dotnet@latest}"
 echo "Ensuring tools: $MISE_TOOLS"
 mise use --global $MISE_TOOLS
 
+# Force reinstall if binaries are missing (e.g. first boot after adding volume persistence)
+if ! command -v rustc >/dev/null 2>&1 && echo "$MISE_TOOLS" | grep -q "rust"; then
+  echo "rustc not found despite mise config — forcing reinstall"
+  mise install rust@latest --force
+fi
+
 # Generate shims so non-interactive shells (Claude Code Bash tool) can find binaries.
 # mise activate adds paths dynamically, but shims must be explicitly created.
 mise reshim
