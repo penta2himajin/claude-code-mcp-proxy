@@ -35,6 +35,10 @@ mkdir -p /workspace/.claude-config/gh
 mkdir -p "$HOME/.config"
 ln -sfn /workspace/.claude-config/gh "$HOME/.config/gh"
 
+# Persist Rust/Cargo in volume (mise rust plugin installs via rustup to ~/.cargo)
+mkdir -p /workspace/.cargo
+ln -sfn /workspace/.cargo "$HOME/.cargo"
+
 # Auto-login with GH_TOKEN if set and not already authenticated
 if [ -n "$GH_TOKEN" ] && ! gh auth status >/dev/null 2>&1; then
   echo "$GH_TOKEN" | gh auth login --with-token
