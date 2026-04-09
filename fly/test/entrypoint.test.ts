@@ -106,6 +106,18 @@ describe("entrypoint.sh safety checks", () => {
     expect(firstToolUse, "no tool usage found after PATH export").toBeGreaterThan(pathLine);
   });
 
+  it("should run mise reshim after tool installation (generates shims for non-interactive shells)", () => {
+    const lines = content.split("\n");
+    const useGlobalLine = lines.findIndex((l) =>
+      !l.trim().startsWith("#") && l.includes("mise use --global"),
+    );
+    const reshimLine = lines.findIndex((l) =>
+      !l.trim().startsWith("#") && l.includes("mise reshim"),
+    );
+    expect(reshimLine, "mise reshim not found").toBeGreaterThanOrEqual(0);
+    expect(reshimLine, "mise reshim must run after mise use --global").toBeGreaterThan(useGlobalLine);
+  });
+
   // ── Config persistence ──
 
   it("should symlink ~/.claude to persistent volume", () => {
